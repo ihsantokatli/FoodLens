@@ -1,0 +1,22 @@
+# Calisma zamani bagimliliklari.
+#
+# DIKKAT (Colab): torch ve torchvision Colab'da onceden kuruludur ve surumleri
+# ortam GPU'suyla eslestirilir. Colab'da bu ikisini AYRI AYRI pip ile kurmayin;
+# notebook'ta "torch/torchvision kurulumu atlanir, sadece asagidakiler kurulur"
+# notuyla diger paketleri kurun. Yerel kurulumda hepsi kurulur.
+
+# Core (Colab'da ATLANIR - onceden gelir)
+torch>=2.1
+torchvision>=0.16
+# UI
+gradio>=4.0
+# Metrikler ve grafikler
+scikit-learn>=1.3
+matplotlib>=3.7
+# Yardimci
+numpy>=1.24
+Pillow>=10.0
+PyYAML>=6.0
+tqdm>=4.66
+# Testler
+pytest>=7.4

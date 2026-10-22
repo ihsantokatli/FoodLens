@@ -1,0 +1,59 @@
+# FoodLens - tam egitim konfigurasyonu
+# Food-101 (101 sinif) - Colab Free T4 (16 GB) hedef alinarak ayarlandi.
+
+experiment_name: food101_effb0
+seed: 42
+
+data:
+  root: data
+  num_classes: 101
+  # Train split icinden stratified %10 val; resmi test split sadece son degerlendirmede kullanilir.
+  val_ratio: 0.10
+  # seed=42 ile stratified secilen indeksler buraya yazilir (yeniden uretim icin).
+  val_indices_path: data/val_indices.json
+  image_size: 224
+  batch_size: 64        # T4 + AMP ile rahat; OOM olursa 48/32
+  num_workers: 2        # Colab; yerel Windows'ta smoke.yaml (0)
+  augment:
+    hflip_p: 0.5
+    rrc_scale: [0.8, 1.0]
+    color_jitter:
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.05
+
+model:
+  arch: efficientnet_b0
+  pretrained_weights: IMAGENET1K_V1
+  dropout: 0.2
+
+train:
+  amp: true
+  label_smoothing: 0.1
+  grad_clip_norm: 1.0
+  stage1:                 # backbone donuk, sadece head
+    epochs: 5
+    head_lr: 0.001
+    backbone_lr: 0.0
+  stage2:                 # tum katmanlar acilir, discriminative LR + cosine
+    epochs: 12
+    head_lr: 0.001
+    backbone_lr: 0.0001
+    scheduler: cosine
+  # -1 = tum bloklar. Colab suresi yetmezse or. 5 -> head + 5..7. bloklar.
+  unfreeze_from_block: -1
+
+eval:
+  topk: [1, 5]
+
+logging:
+  runs_dir: runs                       # runs/<tarih>_<experiment_name>/ - mevcut klasorun uzerine YAZMA
+  history_csv: history.csv             # "stage" sutunlu tek dosya (stage1 + stage2)
+  curves_png: curves.png
+  summary_csv: summary.csv             # runs/summary.csv - kosu basina ozet satiri
+
+gradio:
+  share: true
+  topk: 5
+  gradcam_layer: features.8            # EfficientNet'de features[-1] (son konvolusyon blogu)

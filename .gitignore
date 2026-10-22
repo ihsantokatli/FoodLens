@@ -1,0 +1,27 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# --- Veri ve uretilen ciktilar (yeniden uretilebilir) ---
+data/*
+!data/.gitkeep
+runs/*
+!runs/.gitkeep
+# Modeller runs/<tarih>_<ad>/ altinda tutulur; tek dosya model yolu Aşama 5'te tanimlanir.
+models/
+
+# --- Editor / OS / defterler ---
+.vscode/
+.idea/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# --- Loglar ---
+*.log

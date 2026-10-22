@@ -1,0 +1,62 @@
+# Smoke test - yerel hizli iterasyon (kucuk alt kume, CPU).
+# Alt kume scripts/make_subset.py ile uretilir (Asama 1).
+
+experiment_name: smoke_subset
+seed: 42
+
+data:
+  root: data/subsets
+  subset_name: smoke_10cls           # data/subsets/smoke_10cls/
+  num_classes: 10
+  subset:
+    num_classes: 10
+    train_per_class: 80
+    val_per_class: 20
+  # Alt kume olusturulurken de stratified %10 val ayrilir (seed=42).
+  val_ratio: 0.10
+  val_indices_path: data/subsets/smoke_10cls_val_indices.json
+  image_size: 224
+  batch_size: 16
+  num_workers: 0        # Windows yerel
+  augment:
+    hflip_p: 0.5
+    rrc_scale: [0.8, 1.0]
+    color_jitter:
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.05
+
+model:
+  arch: efficientnet_b0
+  pretrained_weights: IMAGENET1K_V1
+  dropout: 0.2
+
+train:
+  amp: false            # CPU
+  label_smoothing: 0.1
+  grad_clip_norm: 1.0
+  stage1:
+    epochs: 1
+    head_lr: 0.001
+    backbone_lr: 0.0
+  stage2:
+    epochs: 1
+    head_lr: 0.001
+    backbone_lr: 0.0001
+    scheduler: cosine
+  unfreeze_from_block: -1
+
+eval:
+  topk: [1, 5]
+
+logging:
+  runs_dir: runs
+  history_csv: history.csv
+  curves_png: curves.png
+  summary_csv: summary.csv
+
+gradio:
+  share: false
+  topk: 5
+  gradcam_layer: features.8
