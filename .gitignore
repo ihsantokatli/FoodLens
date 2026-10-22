@@ -25,3 +25,6 @@ Thumbs.db
 
 # --- Loglar ---
 *.log
+
+# --- Gecici notlar / referans (commit edilmez) ---
+yemek_api.txt
