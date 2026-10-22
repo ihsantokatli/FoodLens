@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.datasets.folder import default_loader
@@ -63,6 +64,19 @@ def build_transforms(
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ]
     )
+
+
+def preprocess_image(pil_img: Image.Image, image_size: int = 224) -> torch.Tensor:
+    """Tek PIL gorselini model girdisine donusturur (eval transform, augmentation YOK).
+
+    API (/predict) ve Gradio tek-gorsel tahmini icin kullanilir (batch yok).
+    Gorsel RGB'ye cevrilir; Donus: (C, H, W) tensor'u. Model girdisi icin
+    cagiran `x.unsqueeze(0)` ile boyut eklemelidir.
+    """
+    if pil_img.mode != "RGB":
+        pil_img = pil_img.convert("RGB")
+    tf = build_transforms(image_size, None, train=False)
+    return tf(pil_img)
 
 
 # ---------------------------------------------------------------------------
