@@ -5,6 +5,7 @@ experiment_name: food101_effb0
 seed: 42
 
 data:
+  kind: food101                 # tam Food-101 (Colab'da indirilir: data/food-101/)
   root: data
   num_classes: 101
   # Train split icinden stratified %10 val; resmi test split sadece son degerlendirmede kullanilir.
