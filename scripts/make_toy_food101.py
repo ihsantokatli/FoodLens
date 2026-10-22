@@ -1,12 +1,21 @@
 """Food-101 biciminde KUCUK oyuncak (toy) kaynak veri uretir - YEREL TEST ICIN.
 
 Gerçek Food-101'i (5.4 GB) indirmeden veri katmaninin akisini calistirmak icin
-ayni klasor/meta bicimini kullanir:
+GERCEK ARSIVLE BIREBIR AYNI klasor/meta bicimini kullanir:
 
     <out>/food-101/
-        meta/train.json   {sinif: ["<sinif>/<ad>", ...]}
-        meta/test.json    {sinif: ["<sinif>/<ad>", ...]}
-        images/<sinif>/<ad>.jpg
+        meta/classes.txt    101 satir, sirali sinif adi (gercekte: apple_pie, ...)
+        meta/labels.txt     ayni siniflarin okunur adlari (Apple pie, ...)
+        meta/train.txt      satir basina "sinif/id" (UZANTISIZ), or.:
+                            apple_pie/1005649
+        meta/test.txt       ayni bicim
+        meta/train.json     {sinif: ["<sinif>/<id>", ...]}  (ayni bilgi, dict)
+        meta/test.json      {sinif: ["<sinif>/<id>", ...]}
+        images/<sinif>/<id>.jpg
+
+.data.py hem .txt hem .json'dan OKUR ve ikisinden de BIREBIR ayni ornek listesini
+uretir (siniflar sirali, icindekiler rel-path ile sirali). Bu uretici her iki
+bicimi de yazdigi icin "gercek arsiple ayni mi?" sorusu yerelde test edilebilir.
 
 Bu kaynak; make_subset.py girdisi, explore_data.py ve testler icin kullanilir.
 Kalici/degerlendirme amaci TAŞIMAZ; tam egitim Colab'da gercek Food-101 ile yapilir.
@@ -69,7 +78,8 @@ def make_toy_food101(
         classes = _TOY_CLASSES[:num_classes]
         if len(classes) < num_classes:
             classes = classes + [f"class_{i:02d}" for i in range(len(classes), num_classes)]
-    classes = classes[:num_classes]
+    # Gercek arsip classes.txt SIRALI oldugu icin toy da sirali uretilir.
+    classes = sorted(classes[:num_classes])
 
     rng = random.Random(seed)
     train_meta: dict[str, list[str]] = {}
@@ -89,6 +99,25 @@ def make_toy_food101(
         train_meta[cls] = tr_rels
         test_meta[cls] = te_rels
 
+    # --- meta: gercek arsiple birebir ayni dosyalar ---
+    # classes.txt: sirali sinif adlari, satir satir
+    (meta_dir / "classes.txt").write_text(
+        "".join(f"{c}\n" for c in classes), encoding="utf-8"
+    )
+    # labels.txt: okunur adlar (gercekte "Apple pie" gibi); toy'da title-case
+    (meta_dir / "labels.txt").write_text(
+        "".join(f"{c.replace('_', ' ').title()}\n" for c in classes), encoding="utf-8"
+    )
+    # train.txt / test.txt: satir basina "sinif/id" (UZANTISIZ) - gercek satir formati
+    (meta_dir / "train.txt").write_text(
+        "".join(f"{rel}\n" for cls in classes for rel in train_meta[cls]),
+        encoding="utf-8",
+    )
+    (meta_dir / "test.txt").write_text(
+        "".join(f"{rel}\n" for cls in classes for rel in test_meta[cls]),
+        encoding="utf-8",
+    )
+    # train.json / test.json: ayni bilgi dict olarak (degerler sinif on eki tasir)
     with (meta_dir / "train.json").open("w", encoding="utf-8") as f:
         json.dump(train_meta, f, indent=1)
     with (meta_dir / "test.json").open("w", encoding="utf-8") as f:
@@ -116,7 +145,10 @@ def main(argv: list[str] | None = None) -> None:
         seed=args.seed,
     )
     print(f"Toy Food-101 hazir: {base}")
-    print(f"  meta/train.json, meta/test.json, images/  -> {args.out}/food-101/")
+    print(
+        "  meta/{classes,labels,train,test}.txt + meta/{train,test}.json + images/"
+        f"  -> {args.out}/food-101/"
+    )
 
 
 if __name__ == "__main__":

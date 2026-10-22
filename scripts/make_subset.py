@@ -25,19 +25,26 @@ from pathlib import Path
 # script'i dogrudan calistirinca src/ yolunu ekle (pip install -e . gerekmez)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from foodlens.data import collect_pool, load_or_create_val_indices  # noqa: E402
+from foodlens.data import (  # noqa: E402
+    collect_pool,
+    load_or_create_val_indices,
+    read_food101_split,
+)
 
 
 def read_train_meta(src_base: Path) -> dict[str, list[str]]:
-    """Kaynak food-101 klasorunden meta/train.json okur (test'e dokunmaz)."""
-    meta_path = src_base / "meta" / "train.json"
-    if not meta_path.exists():
+    """Kaynak food-101 klasorunden meta/train okur (test'e dokunmaz).
+
+    meta/train.txt ONCELIKLI (gercek arsip satir formati: 'sinif/id', uzantisiz);
+    yoksa meta/train.json. data.py ile AYNI okuma yolunu kullanir.
+    """
+    meta_dir = Path(src_base) / "meta"
+    if not (meta_dir / "train.txt").exists() and not (meta_dir / "train.json").exists():
         raise FileNotFoundError(
-            f"meta/train.json bulunamadi: {meta_path}\n"
+            f"meta/train.txt veya meta/train.json bulunamadi: {meta_dir}\n"
             "Kaynak food-101 klasoru (meta/ + images/ iceren) gerekli."
         )
-    with meta_path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_food101_split(meta_dir, "train")
 
 
 def select_pool(

@@ -80,27 +80,77 @@ def read_food101_meta(meta_dir: Path) -> dict[str, list[str]]:
     return data
 
 
+def read_food101_split(meta_dir: Path, split: str) -> dict[str, list[str]]:
+    """meta/<split>.txt ONCELIKLI; yoksa <split>.json. Ikcisi ayni dict'i dondurur.
+
+    Gercek arsip satir formati (meta/train.txt, meta/test.txt):
+        apple_pie/1005649        <- "sinif/id", UZANTISIZ, dosya satiri basina bir ornek
+    meta/train.json ayni bilgiyi dict olarak tutar ve degerler de sinif on eki tasir:
+        {"apple_pie": ["apple_pie/1005649", ...]}
+    Burada .txt satirini "sinif/id" olarak okuyup JSON degeriyle AYNI bicime
+    (sinif on ekli, uzantisiz) ceviririz; boylece iki kaynak birebir eslesir.
+    """
+    meta_dir = Path(meta_dir)
+    txt_path = meta_dir / f"{split}.txt"
+    if txt_path.exists():
+        meta: dict[str, list[str]] = defaultdict(list)
+        for lineno, line in enumerate(
+            txt_path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            line = line.strip()
+            if not line:
+                continue
+            cls, sep, rest = line.partition("/")
+            if not sep or not cls or not rest:
+                raise ValueError(
+                    f"meta/{split}.txt {lineno}. satir gecersiz "
+                    f"( beklenen 'sinif/id' ): {line!r}"
+                )
+            meta[cls].append(f"{cls}/{rest}")
+        return dict(meta)
+    return read_food101_meta(meta_dir / f"{split}.json")
+
+
+def read_food101_classes(meta_dir: Path, split: str = "train") -> list[str]:
+    """Sinif listesi: meta/classes.txt varsa ONU (gercekte 101 sirali ad); yoksa sorted."""
+    meta_dir = Path(meta_dir)
+    classes_txt = meta_dir / "classes.txt"
+    if classes_txt.exists():
+        return [
+            ln.strip()
+            for ln in classes_txt.read_text(encoding="utf-8").splitlines()
+            if ln.strip()
+        ]
+    return sorted(read_food101_split(meta_dir, split).keys())
+
+
 def samples_from_meta(
-    meta: dict[str, list[str]], images_dir: Path
+    meta: dict[str, list[str]],
+    images_dir: Path,
+    classes: list[str] | None = None,
 ) -> tuple[list[str], list[int], list[str]]:
     """Meta dict'ten (yol, hedef) ornegi listesi + sinif adlari uretir.
 
     Donus: (image_paths, labels, classes)
-    - classes: sorted(meta.keys())  -> torchvision Food101 ile ayni siralama
+    - classes: verilirse O kullanilir (meta/classes.txt); verilmezse sorted(meta)
     - labels: class_to_idx eslemesi
-    - image_paths: images_dir/<yol>.jpg   (yol zaten sinif on eki tasir)
+    - image_paths: images_dir/<yol>.jpg   (yol zaten sinif on eki tasir, uzantisiz)
+
+    KANONIK SIRA: siniflar sirali, her sinif icin ornekler de rel-path ile sirali.
+    Bu yuzden ayni meta hem .txt hem .json'dan okunsa BIREBIR ayni ornek sirasi
+    uretilir (val_indices.json indeksleri kaynak formatindan bagimsiz olur).
     """
-    classes = sorted(meta.keys())
+    if classes is None:
+        classes = sorted(meta.keys())
     class_to_idx = {c: i for i, c in enumerate(classes)}
     image_paths: list[str] = []
     labels: list[int] = []
     for cls in classes:
         idx = class_to_idx[cls]
-        for rel in meta[cls]:
-            rel_path = Path(str(rel).replace("\\", "/"))
-            image_paths.append(str((images_dir / rel_path).with_suffix(".jpg")))
+        for rel in sorted(str(r).replace("\\", "/") for r in meta.get(cls, [])):
+            image_paths.append(str(images_dir / Path(rel).with_suffix(".jpg")))
             labels.append(idx)
-    return image_paths, labels, classes
+    return image_paths, labels, list(classes)
 
 
 # ---------------------------------------------------------------------------
@@ -255,11 +305,19 @@ def load_food101(
 
         _F101(root=str(root), split="train", download=True)
 
-    train_meta = read_food101_meta(meta_dir / "train.json")
-    test_meta = read_food101_meta(meta_dir / "test.json")
+    # Gercek arsipte meta hem .txt hem .json icerir; .txt ONCELIKLI (satir: sinif/id).
+    classes = read_food101_classes(meta_dir, "train")
+    train_meta = read_food101_split(meta_dir, "train")
+    test_meta = read_food101_split(meta_dir, "test")
 
-    tr_paths, tr_labels, classes = samples_from_meta(train_meta, images_dir)
-    te_paths, te_labels, _ = samples_from_meta(test_meta, images_dir)
+    unknown = set(train_meta) - set(classes)
+    if unknown:
+        raise ValueError(
+            f"train meta'da classes.txt'te OLMAYAN siniflar var: {sorted(unknown)[:5]}"
+        )
+
+    tr_paths, tr_labels, _ = samples_from_meta(train_meta, images_dir, classes)
+    te_paths, te_labels, _ = samples_from_meta(test_meta, images_dir, classes)
 
     if val_indices_path is None:
         val_indices_path = root / "val_indices.json"
