@@ -4,23 +4,27 @@
 > Durum işaretleri: `[ ]` açık · `[~]` devam · `[x]` bitmiş · `[BLOCKED]` engelli.
 
 ## Sıradaki (Acil)
-- [x] **Aşama 2 commit:** `Stage 2: model (...)` → `a495bf0`.
-- [x] **`yemek_api.txt` kararı:** `.gitignore`'a eklendi (yerel referans, commit edilmedi).
-- [x] **Aşama 2-API:** `app/api.py` + `preprocess_image` + requirements + `tests/test_api.py` → `da6f019`.
+- [x] **Aşama 2 commit:** `a495bf0`.
+- [x] **`yemek_api.txt` kararı:** `.gitignore`'a eklendi.
+- [x] **Aşama 2-API:** `da6f019`.
 
-## Aşama 3 — Eğitim + Colab  ← SIRADAKİ
-- [ ] `src/foodlens/train.py`: AMP, label smoothing, grad clip, iki aşama (stage1 head-only 5 epoch LR 1e-3 → stage2 discriminative LR (backbone 1e-4/head 1e-3) + cosine 10-15 epoch), `--unfreeze-from-block N`.
-- [ ] Checkpoint contract'ı train.py'de uygula (`model_state`, `classes`, `arch`, `num_classes`, `image_size`, `config`) → `api.py` ile uyumlu.
-- [ ] `runs/<tarih>_<deney_ad>/` logging: `config.json`, `history.csv` (**"stage" sütunu**), `curves.png`, `best.pt`, `last.pt` + `runs/summary.csv`. Mevcut klasör üzerine yazma.
-- [ ] `runs/` için `.gitignore` ayarı (checkpoint'ler commit edilmesin) — `.gitignore`'da `runs/*` zaten var, `.gitkeep` kontrolü.
-- [ ] `notebooks/food101_colab.ipynb` — Full Food-101 indir (Colab) → `validate_food101.py` **zorunlu pre-flight** → eğitim → checkpoint'i indir.
-- [ ] `train.py` için `tests/test_train.py` (küçük epoch / toy veri ile ağ akışı).
+## Aşama 3 — Eğitim + Colab  ← TAMAMLANDI (`236bc8e`)
+- [x] `src/foodlens/train.py`: AMP, label smoothing, grad clip, iki aşama, `--unfreeze-from-block N`.
+- [x] Checkpoint contract train.py'de (`model_state`,`classes`,`arch`,`num_classes`,`image_size`,`config`) → api.py ile uyumlu **kanıtlandı**.
+- [x] `runs/<tarih>_<ad>/` logging: `config.json`, `history.csv` (stage sütunu), `curves.png`, `best.pt`, `last.pt` + `runs/summary.csv`; mevcut klasör ezilmez.
+- [x] `runs/` `.gitignore` kontrolü (`runs/*` zaten ignore).
+- [x] `notebooks/food101_colab.ipynb` (10 hücre; indirme → **zorunlu validate** → eğitim → indirme).
+- [x] `tests/test_train.py` (5 test: run klasoru, contract, epoch metrikleri, e2e).
 
-## Aşama 4 — UI + Açıklanabilirlik
+## Aşama 4 — UI + Açıklanabilirlik  ← SIRADAKİ
 - [ ] `src/foodlens/explain.py` — Grad-CAM, hedef katman `features[-1]` (= `features.8`), Top-1 sınıf.
 - [ ] `app/` Gradio UI — top-5 + Grad-CAM heatmap; tek görsel yükleme (batch YOK).
 - [ ] `app/api.py`'ye `/explain` endpoint'i (Grad-CAM) ekle.
 - [ ] `tests/test_explain.py`.
+
+## Colab / Gerçek Model
+- [ ] `notebooks/food101_colab.ipynb`'i Colab'da çalıştır: tam Food-101 indir → validate → eğitim → `best.pt` indir.
+- [ ] Elde edilen `best.pt`'yi Gradio/FastAPI için `runs/` altında sakla (API otomatik bulur).
 
 ## Entegrasyon / Teslim
 - [ ] Arkadaşın private repoya (`myusufay/Food-Image-Classification`) branch push:

@@ -58,3 +58,16 @@
 - **Kök neden:** Script `--force` tanımlamıyor (çıkış klasörüne yazıyor).
 - **Çözüm:** `--force` yok; mevcut klasörü `Remove-Item -Recurse` ile temizleyip yeniden üret, ya da `--help`'e bak.
 - **Ders:** Script argümanlarını varsayma, `--help` ile doğrula.
+
+---
+
+### 8) Top-k doğruluğunda `gather` yanlış kullanımı → "index out of bounds"
+- **Belirti:** `RuntimeError: index 5 is out of bounds for dimension 1 with size 5` (10 sınıflı veride top-5 hesaplarken). Kod: `topk.gather(1, yb.view(-1,1)).any(1)`.
+- **Kök neden:** `logits.topk(k).indices` → `(bs, k)` **sınıf indeksleri** tutar (sıra değil). `gather(1, yb)` ifadesi bunları **sutun numarası** sanıp gerçek etiketi (`yb`, 0..9) sutun indeksi olarak kullanıyor; ama `topk`'un yalnızca `k=5` sutunu var → 5+ index patlıyor.
+- **Çözüm:** "Gerçek etiket top-k içinde mi?" `topk.eq(yb.view(-1,1)).any(dim=1)` ile sorulur. Doğru kod:
+  ```python
+  topk = logits.topk(k, dim=1).indices      # (bs, k) SINIF indeksleri
+  c1 += (topk[:, 0] == yb).sum().item()
+  c5 += topk.eq(yb.view(-1, 1)).any(dim=1).sum().item()   # Top-k dogruluk
+  ```
+- **Ders:** `gather` yalnızca **aynı boyuttaki indeks-tensorunu** seçmek içindir; top-k accuracy'de indeksler sınıf numarası olduğu için `eq + any` kullan. `topk` sütunları = rank değil, sınıf indeksi.
