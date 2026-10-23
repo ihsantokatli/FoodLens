@@ -20,6 +20,7 @@ Swagger UI: /docs
 
 from __future__ import annotations
 
+import base64
 import io
 import os
 import sys
@@ -38,6 +39,7 @@ if str(_ROOT / "src") not in sys.path:
 
 from foodlens.config import load_config  # noqa: E402
 from foodlens.data import preprocess_image  # noqa: E402
+from foodlens.explain import explain_image, resolve_target_layer  # noqa: E402
 
 # --- MOCK cevabi (arkadasinin iskeletindeki birebir ayni alanlar) ---
 _MOCK = {
@@ -134,6 +136,67 @@ def _predict(img: Image.Image, st: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _gradcam_layer_name() -> str:
+    """Grad-CAM hedef katmani: config.gradio.gradcam_layer -> 'features.8'."""
+    try:
+        cfg = load_config(_ROOT / "configs" / "default.yaml")
+        return str(cfg.get("gradio", {}).get("gradcam_layer", "features.8"))
+    except Exception:
+        return "features.8"
+
+
+def _explain(img: Image.Image, st: dict[str, Any]) -> dict[str, Any]:
+    """Grad-CAM + top-5: overlay PNG'yi base64 olarak dondurur."""
+    layer_name = _gradcam_layer_name()
+    layer = resolve_target_layer(st["model"], layer_name)
+    out = explain_image(
+        st["model"],
+        img,
+        st["classes"],
+        image_size=st["image_size"],
+        target_layer=layer,
+        topk=5,
+    )
+
+    buf = io.BytesIO()
+    out["overlay"].save(buf, format="PNG")
+    png_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    tahminler = [
+        {"sinif": name, "olasilik": round(prob * 100, 2)}
+        for name, prob in out["predictions"]
+    ]
+    en_iyi, en_iyi_p = out["predictions"][0]
+    return {
+        "tahmin_edilen_yemek": en_iyi,
+        "dogruluk_orani": round(en_iyi_p * 100, 2),
+        "durum": "Basarili",
+        "kaynak": "model",
+        "tahminler": tahminler,
+        "gradcam_katmani": layer_name,
+        "gradcam_gorsel": f"data:image/png;base64,{png_b64}",
+        "checkpoint": st["checkpoint"],
+    }
+
+
+async def _read_upload(file: UploadFile):
+    """Dosyayi dogrular ve PIL RGB'ye cevirir. Hata: (None, JSONResponse)."""
+    if file.content_type not in ["image/jpeg", "image/png"]:
+        return None, JSONResponse(
+            status_code=415,
+            content={"hata": "Desteklenmeyen dosya formatı. Lütfen JPG veya PNG yükleyin."},
+        )
+
+    data = await file.read()
+    try:
+        return Image.open(io.BytesIO(data)).convert("RGB"), None
+    except Exception:
+        return None, JSONResponse(
+            status_code=400,
+            content={"hata": "Görsel açılamadı. Geçerli bir görüntü dosyası yükleyin."},
+        )
+
+
 @app.get("/")
 async def root():
     return {
@@ -146,21 +209,9 @@ async def root():
 
 @app.post("/predict")
 async def predict_food(file: UploadFile = File(...)):
-    # 1) Dosya formati kontrolu (sadece JPG ve PNG)
-    if file.content_type not in ["image/jpeg", "image/png"]:
-        return JSONResponse(
-            status_code=415,
-            content={"hata": "Desteklenmeyen dosya formatı. Lütfen JPG veya PNG yükleyin."},
-        )
-
-    data = await file.read()
-    try:
-        img = Image.open(io.BytesIO(data)).convert("RGB")
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={"hata": "Görsel açılamadı. Geçerli bir görüntü dosyası yükleyin."},
-        )
+    img, err = await _read_upload(file)
+    if err is not None:
+        return err
 
     st = get_state()
     if st["model"] is None:
@@ -168,6 +219,32 @@ async def predict_food(file: UploadFile = File(...)):
     else:
         body = _predict(img, st)
 
+    body["dosya_adi"] = file.filename
+    return body
+
+
+@app.post("/explain")
+async def explain_food(file: UploadFile = File(...)):
+    """Grad-CAM aciklamasi: top-5 + isi haritasi (base64 PNG). Model yoksa 503."""
+    img, err = await _read_upload(file)
+    if err is not None:
+        return err
+
+    st = get_state()
+    if st["model"] is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "hata": (
+                    "Grad-CAM için eğitilmiş model gerekli. "
+                    "runs/<tarih>_<ad>/best.pt indirin veya FOODLENS_CHECKPOINT ayarlayın."
+                ),
+                "durum": "Model yok",
+                "kaynak": "mock",
+            },
+        )
+
+    body = _explain(img, st)
     body["dosya_adi"] = file.filename
     return body
 

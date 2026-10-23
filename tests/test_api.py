@@ -124,6 +124,49 @@ def test_predict_real_top5_with_checkpoint(client, monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# /explain (Asama 4): Grad-CAM - checkpoint yoksa 503, varsa base64 overlay
+# ---------------------------------------------------------------------------
+def test_explain_returns_503_without_checkpoint(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("FOODLENS_CHECKPOINT", str(tmp_path / "yok.pt"))
+    api.reset_state()
+    r = client.post(
+        "/explain", files={"file": ("yemek.png", _png_bytes(), "image/png")}
+    )
+    assert r.status_code == 503
+    body = r.json()
+    assert "hata" in body
+    assert body["durum"] == "Model yok"
+
+
+def test_explain_real_returns_top5_and_base64_overlay(client, monkeypatch, tmp_path):
+    import base64
+
+    ckpt = _make_checkpoint(tmp_path, num_classes=5)
+    monkeypatch.setenv("FOODLENS_CHECKPOINT", str(ckpt))
+    api.reset_state()
+
+    r = client.post(
+        "/explain", files={"file": ("yemek.png", _png_bytes(300), "image/png")}
+    )
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["kaynak"] == "model"
+    assert body["durum"] == "Basarili"
+    assert body["gradcam_katmani"] == "features.8"
+    assert len(body["tahminler"]) == 5
+    assert body["tahminler"][0]["sinif"] == body["tahmin_edilen_yemek"]
+    assert 0.0 <= body["dogruluk_orani"] <= 100.0
+
+    # base64 PNG gercekten acilabilir ve giris boyutunu korur
+    assert body["gradcam_gorsel"].startswith("data:image/png;base64,")
+    raw = base64.b64decode(body["gradcam_gorsel"].split(",", 1)[1])
+    img = Image.open(io.BytesIO(raw))
+    assert img.mode == "RGB"
+    assert img.size == (300, 300)
+
+
+# ---------------------------------------------------------------------------
 # preprocess_image
 # ---------------------------------------------------------------------------
 def test_preprocess_image_shape_and_rgb():
