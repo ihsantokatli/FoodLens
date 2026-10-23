@@ -1,6 +1,6 @@
 # RULES.md — FoodLens Teknolojiler & Kodlama Standartları
 
-> Bu dosya AI Hafıza Sistemi'nin kurallar kaynağıdır. Her yeni göreve BAŞLAMADAN önce oku.
+> Bu dosya AI Hafıza Sistemi'nin kurallar kaynağıdır.
 > Değişiklik gerektiğinde bu dosyayı güncelle.
 
 ## 1. Proje Kimliği

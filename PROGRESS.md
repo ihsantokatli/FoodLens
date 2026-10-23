@@ -6,7 +6,7 @@
 ## Genel Durum
 - **Aşamalar:** 0 ✓ · 1 ✓ · 2 (model) ✓ · 2-API ✓ · **3 (egitim + Colab) ✓** · **sıradaki: 4 (Gradio + Grad-CAM)** · entegrasyon bekliyor.
 - **Testler:** **41 passed** (`test_data.py` 19 + `test_model.py` 11 + `test_api.py` 6 + `test_train.py` 5).
-- **Son commit:** `236bc8e` (Stage 3). Toplam 8 commit.
+- **Son commit:** `82f6df4` (hafıza güncellemesi). Son aşama commit'i: `236bc8e` (Stage 3). Toplam 9 commit.
 - **Eğitim:** Yerel smoke dogrulandi (runs/ uretimi). Tam egitim Colab'da yapilacak (defter hazir).
 - **Çalışma ağacı:** temiz.
 
@@ -21,6 +21,7 @@
 | `da6f019` | Stage 2-API: FastAPI inference service (checkpoint-ready, mock fallback) | ✓ |
 | `9062a25` | Update memory: Stage 2 + Stage 2-API done, focus moves to Stage 3 | ✓ |
 | `236bc8e` | Stage 3: training loop (two-stage fine-tune, runs logging, checkpoint contract) + Colab notebook | ✓ |
+| `82f6df4` | Update memory: Stage 3 done (train + Colab), log top-k gather bug, focus moves to Stage 4 | ✓ |
 
 ## Commit Edilmemiş
 - (yok — çalışma ağacı temiz. `yemek_api.txt` `.gitignore`'da.)
