@@ -8,6 +8,7 @@
 - **Testler:** **53 passed** (`test_data.py` 19 + `test_model.py` 11 + `test_api.py` 8 + `test_train.py` 5 + `test_explain.py` 8 + `test_gradio_app.py` 2).
 - **Son aşama commit'i:** `e493b23` (Stage 4). Kod/aşama toplamı: **10 commit** (+ hafıza güncellemeleri).
 - **Eğitim:** Yerel smoke dogrulandi (runs/ uretimi). Tam egitim Colab'da yapilacak (defter hazir).
+- **Uzak repo:** `https://github.com/ihsantokatli/FoodLens` (private, `master`) — Colab'da `FOODLENS_REPO_URL` olarak kullanılabilir.
 - **Çalışma ağacı:** temiz.
 
 ## Commit'ler
