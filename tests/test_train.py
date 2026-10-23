@@ -183,3 +183,169 @@ def test_train_run_end_to_end(toy_food101, tmp_path, augment_cfg):
     # checkpoint gercekten yuklenebilir + contract saglam
     blob = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
     assert blob["num_classes"] == 5 and len(blob["classes"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# Asama 4.5: --resume + --runs-dir
+# ---------------------------------------------------------------------------
+def test_save_checkpoint_with_train_state(tmp_path):
+    """last.pt contract + train_state tasir; best.pt sozlesmesi degismez."""
+    from foodlens.model import build_model
+
+    m = build_model(num_classes=3, weights=None, dropout=0.2)
+    classes = ["a", "b", "c"]
+    state = {
+        "stage": "stage1",
+        "epoch": 2,
+        "optimizer": {},
+        "scheduler": None,
+        "scaler": None,
+        "best": {"val_top1": 0.5},
+        "history": [{"stage": "stage1", "epoch": 1}],
+    }
+    p = tmp_path / "last.pt"
+    save_checkpoint(p, m, classes, "efficientnet_b0", 64, {}, train_state=state)
+    blob = torch.load(p, map_location="cpu", weights_only=False)
+
+    # contract anahtarlari korunur + train_state eklenir
+    assert {
+        "model_state",
+        "classes",
+        "arch",
+        "num_classes",
+        "image_size",
+        "config",
+    }.issubset(blob)
+    assert blob["train_state"]["stage"] == "stage1"
+    assert blob["train_state"]["epoch"] == 2
+    assert blob["train_state"]["history"]
+
+
+def _toy_cfg(toy_food101, tmp_path, augment_cfg, name: str = "unit_resume") -> dict:
+    """Resume testleri icin kucuk, indirmesiz egitim config'i."""
+    return {
+        "experiment_name": name,
+        "seed": 42,
+        "data": {
+            "kind": "food101",
+            "root": str(toy_food101.parent),
+            "val_ratio": 0.2,
+            "val_indices_path": str(tmp_path / f"vi_{name}.json"),
+            "image_size": 64,
+            "batch_size": 4,
+            "num_workers": 0,
+            "augment": augment_cfg,
+        },
+        "model": {
+            "arch": "efficientnet_b0",
+            "pretrained_weights": None,
+            "dropout": 0.2,
+        },
+        "train": {
+            "amp": False,
+            "label_smoothing": 0.1,
+            "grad_clip_norm": 1.0,
+            "stage1": {"epochs": 1, "head_lr": 1e-3, "backbone_lr": 0.0},
+            "stage2": {"epochs": 1, "head_lr": 1e-3, "backbone_lr": 1e-4, "scheduler": "cosine"},
+            "unfreeze_from_block": -1,
+        },
+        "logging": {
+            "runs_dir": str(tmp_path / "runs"),
+            "history_csv": "history.csv",
+            "curves_png": "curves.png",
+            "summary_csv": "summary.csv",
+        },
+    }
+
+
+def test_resume_continues_mid_stage(toy_food101, tmp_path, augment_cfg):
+    cfg = _toy_cfg(toy_food101, tmp_path, augment_cfg, "unit_resume_mid")
+
+    args1 = build_argparser().parse_args(
+        ["--device", "cpu", "--limit-batches", "2", "--stage1-epochs", "1", "--no-stage2"]
+    )
+    out1 = train_run(cfg, args1)
+    run_dir = Path(out1["run_dir"])
+
+    # run klasorunu (dizin) vererek resume et -> stage1 epoch 2'den devam
+    args2 = build_argparser().parse_args(
+        [
+            "--device", "cpu", "--limit-batches", "2",
+            "--stage1-epochs", "2", "--no-stage2",
+            "--resume", str(run_dir),
+        ]
+    )
+    out2 = train_run(cfg, args2)
+
+    assert out2["resumed"] is True
+    assert Path(out2["run_dir"]) == run_dir  # yeni run klasoru ACILMAZ
+    assert [(r["stage"], int(r["epoch"])) for r in out2["history"]] == [
+        ("stage1", 1),
+        ("stage1", 2),
+    ]
+
+    # history.csv tekrar yazildi, satir tekrari yok
+    hist = (run_dir / "history.csv").read_text(encoding="utf-8")
+    rows = [ln for ln in hist.splitlines() if ln.strip()]
+    assert len(rows) == 3  # baslik + 2 epoch
+    assert "1,0.001" in rows[1] and "2,0.001" in rows[2]
+
+    # last.pt tam durum tasir; best.pt minimal contract kalir
+    last = torch.load(run_dir / "last.pt", map_location="cpu", weights_only=False)
+    assert last["train_state"]["stage"] == "stage1"
+    assert last["train_state"]["epoch"] == 2
+    best = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
+    assert "train_state" not in best
+
+    # summary.csv'de ayni run icin tek satir (upsert)
+    summary = (tmp_path / "runs" / "summary.csv").read_text(encoding="utf-8")
+    assert len([ln for ln in summary.splitlines() if ln.strip()]) == 2
+
+
+def test_resume_skips_completed_stage_and_starts_stage2(toy_food101, tmp_path, augment_cfg):
+    cfg = _toy_cfg(toy_food101, tmp_path, augment_cfg, "unit_resume_stage")
+
+    args1 = build_argparser().parse_args(
+        ["--device", "cpu", "--limit-batches", "2", "--stage1-epochs", "1", "--no-stage2"]
+    )
+    out1 = train_run(cfg, args1)
+    run_dir = Path(out1["run_dir"])
+
+    args2 = build_argparser().parse_args(
+        [
+            "--device", "cpu", "--limit-batches", "2",
+            "--stage1-epochs", "1", "--stage2-epochs", "1",
+            "--resume", str(run_dir / "last.pt"),
+        ]
+    )
+    out2 = train_run(cfg, args2)
+
+    # stage1 atlandi, stage2 epoch 1 calisti; test degerlendirmesi yapildi
+    assert [(r["stage"], int(r["epoch"])) for r in out2["history"]] == [
+        ("stage1", 1),
+        ("stage2", 1),
+    ]
+    last = torch.load(run_dir / "last.pt", map_location="cpu", weights_only=False)
+    assert last["train_state"]["stage"] == "stage2"
+    assert last["train_state"]["epoch"] == 1
+    assert out2["summary"]["test_top1"] != ""
+
+
+def test_runs_dir_override(toy_food101, tmp_path, augment_cfg):
+    """--runs-dir (Colab Drive) config'teki runs_dir'i ezer."""
+    cfg = _toy_cfg(toy_food101, tmp_path, augment_cfg, "unit_runsdir")
+    custom = tmp_path / "drive_runs"
+
+    args = build_argparser().parse_args(
+        [
+            "--device", "cpu", "--limit-batches", "1",
+            "--stage1-epochs", "1", "--no-stage2",
+            "--runs-dir", str(custom),
+        ]
+    )
+    out = train_run(cfg, args)
+    run_dir = Path(out["run_dir"])
+
+    assert run_dir.parent == custom
+    assert (custom / "summary.csv").exists()
+    assert (run_dir / "last.pt").exists()
