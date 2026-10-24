@@ -30,7 +30,8 @@
 | `fe62cd4` | docs: record GitHub remote (ihsantokatli/FoodLens, private, master) | ✓ |
 | `0cba75f` | Add resume support (--resume, --runs-dir) + Colab Drive/resume flow | ✓ |
 | `d35c596` | Update memory: resume + Drive support done (57 tests), Colab training is next | ✓ |
-| `510f440` | Stage 6: tam eğitim sonuçları (test %84,10 / %96,16) + entegrasyon paketi + README | ✓ |
+| `61949f1` | Stage 6: tam eğitim sonuçları (test %84,10 / %96,16) + entegrasyon paketi + README | ✓ |
+| *(docs)* | Commit hash düzeltmesi (Stage 6 → `61949f1`) | ✓ |
 
 ## Commit Edilmemiş
 - (yok — çalışma ağacı temiz. `yemek_api.txt` `.gitignore`'da.)
