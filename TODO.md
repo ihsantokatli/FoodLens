@@ -8,7 +8,9 @@
 - [x] **Aşama 4 commit:** `e493b23`.
 - [x] **Resume + Drive commit:** `0cba75f`.
 - [x] **`yemek_api.txt` kararı:** `.gitignore`'a eklendi.
-- [ ] **Colab tam eğitim:** Drive hücresi + 5+12 epoch (aşağıdaki bölüm).
+- [x] **Colab tam eğitim:** 5+12 epoch, test **%84,10 / %96,16** (2 oturum, resume ile).
+- [x] **Entegrasyon paketi:** `feature/foodlens-integration` hazır (`c5b3b9c`).
+- [ ] **Push + PR (kullanıcı):** arkadaşın reposuna dalı gönder, PR aç, teslim notunu yaz.
 
 ## Aşama 3 — Eğitim + Colab  ← TAMAMLANDI (`236bc8e`)
 - [x] `src/foodlens/train.py`: AMP, label smoothing, grad clip, iki aşama, `--unfreeze-from-block N`.
@@ -34,20 +36,22 @@
 - [x] Testler: `test_train.py` 5 → 9 (mid-stage resume, stage geçişi, `--runs-dir`) → **57 passed**.
 - [x] Gerçek smoke: stage1 → resume → stage2 doğrulandı.
 
-## Colab / Gerçek Model  ← SIRADAKİ
-- [ ] `notebooks/food101_colab.ipynb`'i Colab'da çalıştır: **4a) Drive** hücresi → tam Food-101 indir → **zorunlu validate** → iki aşamalı eğitim.
-- [ ] Süre/kopma olursa: Drive'daki run klasörünü `RESUME_DIR`'e yaz → aynı hücreyi tekrar çalıştır (kaldığı stage/epoch+1).
-- [ ] `best.pt` + `history.csv` + `curves.png` + `summary.csv` dosyalarını indir; `best.pt`'yi `runs/<tarih>_food101_effb0/best.pt` altına koy (API otomatik bulur).
-- [ ] **Gerçek modelle doğrula:** `/predict` top-5, `/explain` overlay, Gradio UI; beklenen test top-1'i `summary.csv` ile karşılaştır.
-- [ ] (Opsiyonel) Colab süresi yetmezse `--unfreeze-from-block 5` veya epoch azalt; sonuçları `runs/summary.csv`'de karşılaştır.
+## Colab / Gerçek Model  ← TAMAMLANDI
+- [x] `notebooks/food101_colab.ipynb` Colab'da çalıştırıldı: **4a) Drive** → tam Food-101 → **validate** → iki aşamalı eğitim.
+- [x] 1. oturum: stage1 5 epoch + stage2 epoch 1-2 → **Runtime kesildi**, `last.pt` Drive'da kaldı.
+- [x] 2. oturum: `RESUME_DIR` ile devam → stage2 epoch 3-12 + test. **Resume sorunsuz çalıştı.**
+- [x] `best.pt` + `history.csv` + `curves.png` indirildi → `runs/20261024_food101_effb0/` (16,05 MB, 101 sınıf, 224 px, `train_state` yok).
+- [x] **Gerçek modelle doğrulandı:** `/predict` → `kaynak: model`, `/explain` → `features.8` + base64 PNG, Gradio UI → top-5 + heatmap. Hepsi başarılı.
+- [x] Sonuçlar: **test top-1 %84,10 · top-5 %96,16** (best val top-1 %79,91, epoch 11).
 
-## Entegrasyon / Teslim
-- [ ] **Hedef repo incele:** `myusufay/Food-Image-Classification` → mevcut `main.py`/`requirements.txt` yapısını oku, çakışmaları belirle.
-- [ ] **Branch hazırla:** `feature/foodlens-integration` (veya benzeri) — `app/api.py` mantığını onun `main.py`'ine taşı; `src/foodlens/`'i vendor'la (self-contained, `pip install -e` gerektirmeden).
-- [ ] **Uyumluluk:** arkadaşın mock cevap alanları (`tahmin_edilen_yemek`, `dogruluk_orani`, `durum`) korunur; checkpoint yoksa mock fallback aynen çalışır.
-- [ ] **README güncelle:** kurulum, `uvicorn app.api:app`, `python app/gradio_app.py`, Colab akışı, checkpoint contract, `/predict` + `/explain` örnekleri.
-- [ ] **Push'u kullanıcı yapar** (contributor). AI yalnızca `git remote add` + `git push -u origin <branch>` komutlarını verir; token istemez.
-- [ ] **PR/teslim notu:** değişiklik özeti + test kanıtı (**57 passed**) + ekran görüntüsü/örnek JSON.
+## Entegrasyon / Teslim  ← PAKET HAZIR, PUSH KULLANICIDA
+- [x] **Hedef repo incele:** `myusufay/Food-Image-Classification` → `main.py` değil `yemek_API/yemek_API.py` (mock `/predict`) + VS `.pyproj`/`.slnx`.
+- [x] **Branch hazırla:** `C:\Projects\Food-Image-Classification` klonu → `feature/foodlens-integration` (`c5b3b9c`) — `app/api.py` mantığı `yemek_API.py`'ye taşındı; `foodlens/` vendor'landı.
+- [x] **Uyumluluk:** mock alanları (`tahmin_edilen_yemek`, `dogruluk_orani`, `durum`, `dosya_adi`) korundu; checkpoint yoksa mock fallback aynen çalışır; `/explain` model yoksa 503.
+- [x] **README güncelle (arkadaşın reposu):** kurulum, model yerleştirme, `python yemek_API/yemek_API.py` + `uvicorn yemek_API.yemek_API:app`, checkpoint contract, gerçek `/predict` + `/explain` JSON, mock mod, sorun giderme.
+- [x] **Doğrulama:** gerçek pizza fotoğrafı → `pizza %61,95`; Grad-CAM pizzanın üzerinde; 3 başlatma yolu + 415/400/503 test edildi.
+- [ ] **Push'u kullanıcı yapar:** `git push -u origin feature/foodlens-integration` → PR. AI token istemez.
+- [ ] **PR/teslim notu:** değişiklik özeti + test kanıtı (**57 passed**) + pizza örnek JSON + Grad-CAM görseli.
 
 ## Nice-to-have (sonra)
 - [ ] confusion matrix + en çok karışan sınıflar raporu.

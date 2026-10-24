@@ -4,10 +4,12 @@
 > Kural/karar kaynağı → [RULES.md](RULES.md). Yapılacaklar → [TODO.md](TODO.md). Çözülen hatalar → [MEMORY.md](MEMORY.md).
 
 ## Genel Durum
-- **Aşamalar:** 0 ✓ · 1 ✓ · 2 (model) ✓ · 2-API ✓ · 3 (egitim + Colab) ✓ · 4 (Gradio + Grad-CAM + /explain) ✓ · **4.5 (resume + Drive) ✓** · **sıradaki: Colab tam eğitim → entegrasyon**.
+- **Aşamalar:** 0 ✓ · 1 ✓ · 2 (model) ✓ · 2-API ✓ · 3 (egitim + Colab) ✓ · 4 (Gradio + Grad-CAM + /explain) ✓ · 4.5 (resume + Drive) ✓ · **5 (Colab tam eğitim) ✓** · **6 (entegrasyon paketi) ✓**.
+- **🏁 Sonuç (Food-101 resmi test, 25.250 görsel):** **top-1 %84,10 · top-5 %96,16**; en iyi val top-1 %79,91 (stage2 epoch 11).
 - **Testler:** **57 passed** (`test_data.py` 19 + `test_model.py` 11 + `test_api.py` 8 + `test_train.py` 9 + `test_explain.py` 8 + `test_gradio_app.py` 2).
-- **Son commit:** `0cba75f` (resume desteği). Stage 4: `e493b23`. Toplam **14 commit**.
-- **Eğitim:** Yerel smoke dogrulandi (runs/ uretimi). Tam egitim Colab'da yapilacak (defter hazir; Drive + resume akisi eklendi).
+- **Eğitim:** Colab T4'te **2 oturumda** (resume ile) tamamlandı — run `20261023_164648_food101_effb0`; yerel kopya `runs/20261024_food101_effb0/` (best.pt 16,05 MB + history.csv + curves.png).
+- **Gerçek modelle doğrulandı:** `/predict` (pizza %61,95), `/explain` (`features.8`, 1,1 MB PNG), Gradio UI — hepsi HTTP 200 / `kaynak: model`.
+- **Entegrasyon:** arkadaşın reposunda `feature/foodlens-integration` dalı hazır (commit `c5b3b9c`, klon: `C:\Projects\Food-Image-Classification`); **push'u kullanıcı yapar**.
 - **Uzak repo:** `https://github.com/ihsantokatli/FoodLens` (**public**, `master`) — Colab token'sız klonlar.
 - **Çalışma ağacı:** temiz.
 
@@ -27,6 +29,8 @@
 | `e493b23` | Stage 4: Grad-CAM explainability + Gradio UI + /explain endpoint | ✓ |
 | `fe62cd4` | docs: record GitHub remote (ihsantokatli/FoodLens, private, master) | ✓ |
 | `0cba75f` | Add resume support (--resume, --runs-dir) + Colab Drive/resume flow | ✓ |
+| `d35c596` | Update memory: resume + Drive support done (57 tests), Colab training is next | ✓ |
+| `510f440` | Stage 6: tam eğitim sonuçları (test %84,10 / %96,16) + entegrasyon paketi + README | ✓ |
 
 ## Commit Edilmemiş
 - (yok — çalışma ağacı temiz. `yemek_api.txt` `.gitignore`'da.)
@@ -70,7 +74,22 @@ Paket yapısı (`src/foodlens/`, `app/`, `scripts/`, `tests/`, `configs/`, `note
 - Testler: `test_train.py` 5 → **9** (+train_state sözleşmesi, mid-stage resume, stage1→stage2 geçişi, `--runs-dir`) → toplam **57 passed**.
 - Gerçek smoke doğrulaması: stage1 (1 epoch) → `--resume` → stage2 epoch 1; `history.csv` 2 satır, `last.pt`'de optimizer+scheduler, `best` korundu.
 
+### ✓ Aşama 5 — Colab tam eğitim (kod commit'i yok, çıktı `runs/`)
+- Run: `20261023_164648_food101_effb0` — 101 sınıf, 5 + 12 epoch, T4 + AMP, batch 64.
+- **İki oturumda resume:** 1. oturum stage1 (5 ep) + stage2 epoch 1-2; 2. oturum `RESUME_DIR` ile stage2 epoch 3-12. Colab süre limiti sorun olmadı.
+- Eğri: train top-1 %95-98, val ~%80 → normal overfit farkı; val 78,6-79,9 bandında plato.
+- **Test:** top-1 **%84,10**, top-5 **%96,16** (`best.pt` = stage2 epoch 11).
+- Yerel: `runs/20261024_food101_effb0/` (klasör adı bilinçli olarak `20261023_193302_smoke_subset`'ten **sonra** → API gerçek modeli seçer).
+
+### ✓ Aşama 6 — Entegrasyon paketi (`c5b3b9c` @ arkadaşın reposu)
+- Hedef repo: `myusufay/Food-Image-Classification` (public, `main`) — yapı: `yemek_API/yemek_API.py` (mock `/predict`) + VS `.pyproj`/`.slnx`.
+- Klon: `C:\Projects\Food-Image-Classification`, dal **`feature/foodlens-integration`** (yerel commit hazır, **push kullanıcıda**).
+- `yemek_API/yemek_API.py` yeniden yazıldı: `_ROOT = parents[1]` → `sys.path` + `foodlens` import; `/predict` (top-5) + `/explain` (Grad-CAM); **mock alanları korunur** (`tahmin_edilen_yemek`, `dogruluk_orani`, `durum`, `dosya_adi`); model yoksa mock, `/explain` 503.
+- Vendor: `foodlens/` (config, data, model, explain) + `configs/default.yaml`; `requirements.txt` (çıkarım bağımlılıkları); `.gitignore` (`runs/`, `*.pt`, `data/`).
+- README: kurulum, model yerleştirme (3 arama yolu), 2 çalıştırma yolu, gerçek `/predict` + `/explain` JSON örnekleri, mock mod, checkpoint sözleşmesi, sorun giderme.
+- **Doğrulandı (gerçek `best.pt` + gerçek pizza fotoğrafı):** `pizza %61,95`; Grad-CAM ısı haritası pizzanın üzerinde; `python yemek_API/yemek_API.py`, `uvicorn yemek_API.yemek_API:app`, `cd yemek_API && uvicorn yemek_API:app` → üçü de 200; 415/400/503 hata yolları doğru.
+
 ## Sırada Ne Var (özet)
-1. **Colab tam eğitim:** Drive hücresi → Food-101 indir → validate → 5+12 epoch; süre/kopma olursa `RESUME_DIR` ile devam → `best.pt` indir.
-2. **Entegrasyon:** arkadaşın reposuna branch (kod taşıma + vendor) — **push'u kullanıcı yapar**; README güncellemesi bu adımda.
-3. **Teslim doğrulaması:** gerçek 101-sınıf `best.pt` ile `/predict`, `/explain` ve Gradio'yu duman testinden geçir.
+1. **Push (kullanıcı):** `C:\Projects\Food-Image-Classification` içinde `git push -u origin feature/foodlens-integration` → GitHub'da PR aç.
+2. **Teslim notu:** değişiklik özeti + test kanıtı (57 passed) + pizza örnek JSON + Grad-CAM görseli.
+3. **Opsiyonel:** Docker, TTA, confusion matrix, GPU'da çıkarım.

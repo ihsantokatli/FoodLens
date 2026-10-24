@@ -23,6 +23,9 @@ models/
 .DS_Store
 Thumbs.db
 
+# --- Gradio (yerel calisma dosyalari) ---
+.gradio/
+
 # --- Loglar ---
 *.log
 

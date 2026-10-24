@@ -71,3 +71,27 @@
   c5 += topk.eq(yb.view(-1, 1)).any(dim=1).sum().item()   # Top-k dogruluk
   ```
 - **Ders:** `gather` yalnızca **aynı boyuttaki indeks-tensorunu** seçmek içindir; top-k accuracy'de indeksler sınıf numarası olduğu için `eq + any` kullan. `topk` sütunları = rank değil, sınıf indeksi.
+
+---
+
+### 9) API yanlış modeli seçti: "en yeni `runs/*/best.pt`" leksikografik sıralama
+- **Belirti:** Gerçek 101 sınıflı model `runs/` altına konduğu halde API hâlâ toy `smoke_subset` modelini yüklüyordu.
+- **Kök neden:** `find_checkpoint` `sorted(runs.glob("*/best.pt"))[-1]` kullanır → klasör adına göre sıralar. Gerçek model klasörü `20261023_164648_...` (Colab tarihi), smoke ise `20261023_193302_...` → **smoke daha "yeni"** görünür.
+- **Çözüm:** Yerel kopya klasörü `runs/20261024_food101_effb0/` olarak adlandırıldı (smoke'tan sonra). Alternatif: `FOODLENS_CHECKPOINT` ile açık yol ver.
+- **Ders:** Sıralamaya dayalı "en yeni" seçimi **adlandırmaya bağımlıdır**; dışarıdan (Colab) gelen çıktıların klasör adını yerel kronolojiye göre düzelt veya env ile sabitle.
+
+---
+
+### 10) Arkadaşın reposunda `ModuleNotFoundError: foodlens`
+- **Belirti:** `python yemek_API/yemek_API.py` çalışınca `foodlens` bulunamıyor; `src/` layout'undaki `sys.path.insert` mantığı vendor yapıya uymuyor.
+- **Kök neden:** Script `yemek_API/` içinden çalışır, `sys.path[0]` = `yemek_API/` olur; `foodlens/` ise **repo kökünde**.
+- **Çözüm:** `_ROOT = Path(__file__).resolve().parents[1]` → `sys.path.insert(0, str(_ROOT))`; vendor paket düz `foodlens/` (src yok). `configs/` yolu da `_ROOT` üzerinden çözülür.
+- **Ders:** Vendor edilen paketlerde yol çözümü **dosya konumuna** göre yapılmalı (cwd'ye veya kurulum durumuna güvenme).
+
+---
+
+### 11) Colab'da "Run all" resume etmez
+- **Belirti:** Yeni oturumda "Run all" → yeni run klasörü + stage1'den başlar; ayrıca `FOODLENS_REPO_URL` boşsa klon hatası.
+- **Kök neden:** `/content` her oturumda silinir (repo + veri gider) ve hücredeki `RESUME_DIR = ''` boştur.
+- **Çözüm:** Elle sıra: `FOODLENS_REPO_URL` ata → hücre 1-3 → **4a Drive** → `RESUME_DIR`'e Drive'daki run klasörünü yaz → sadece eğitim hücresini çalıştır. Çıktıda `[resume] ... stage=stage2 epoch=N` görülmeli; `Resume: False` ise dur.
+- **Ders:** Bulutta kalıcılık varsayılmaz; resume için hem **veri** hem **checkpoint** yolunu her oturumda yeniden kur.
